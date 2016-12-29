@@ -4,6 +4,10 @@ Backbone dualStorage Adapter v1.4.2
 A simple module to replace `Backbone.sync` with *localStorage*-based
 persistence. Models are given GUIDS, and saved into a JSON object. Simple
 as that.
+
+---
+Customized version for NC
+https://github.com/raohmaru/Backbone.dualStorage
 ###
 
 Backbone.DualStorage = {
@@ -61,11 +65,10 @@ S4 = ->
 # Our Store is represented by a single JS object in *localStorage*. Create it
 # with a meaningful name, like the name you'd give a table.
 class window.Store
-  sep: '' # previously '-'
+  sep: '_' # previously '-'
 
-  constructor: (name, sep='') ->
+  constructor: (name) ->
     @name = name
-    @sep = sep
     @records = @recordsOn @name
 
   # Generates an unique id to use when saving new instances into localstorage
@@ -179,7 +182,7 @@ localsync = (method, model, options) ->
   if not isValidModel
     throw new Error 'model parameter is required to be a backbone model or collection.'
 
-  store = new Store options.storeName, options.storeSep
+  store = new Store options.storeName
 
   response = switch method
     when 'read'
@@ -249,7 +252,6 @@ onlineSync = (method, model, options) ->
 
 dualsync = (method, model, options) ->
   options.storeName = getStoreName(model.collection, model)
-  options.storeSep = model.storeSep
   options.storeExists = Store.exists(options.storeName)
   options.success = callbackTranslator.forDualstorageCaller(options.success, model, options)
   options.error   = callbackTranslator.forDualstorageCaller(options.error, model, options)
