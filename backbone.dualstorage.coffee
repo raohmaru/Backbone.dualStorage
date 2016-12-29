@@ -298,6 +298,7 @@ dualsync = (method, model, options) ->
       else
         options.success = (resp, _status, _xhr) ->
           return useOfflineStorage() if hasOfflineStatusCode options.xhr
+          return success(resp, _status, _xhr) if _xhr and _xhr.status == 304
           resp = parseRemoteResponse(model, resp)
 
           if model instanceof Backbone.Collection
