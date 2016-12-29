@@ -323,8 +323,12 @@ dualsync = (method, model, options) ->
     when 'create'
       options.success = (resp, _status, _xhr) ->
         return useOfflineStorage() if hasOfflineStatusCode options.xhr
-        updatedModel = modelUpdatedWithResponse model, resp
-        localsync(method, updatedModel, options)
+        if options.parse != false
+          updatedModel = modelUpdatedWithResponse model, resp
+          localsync(method, updatedModel, options)
+        else
+          method = "update"
+          localsync(method, model, options)
         success(resp, _status, _xhr)
       options.error = (xhr) ->
         relayErrorCallback xhr
