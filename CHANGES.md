@@ -1,6 +1,6 @@
 ### 1.4.2 / 2016-12-28
 
-* Allow define the separator string between store name and id.
+* On sync with server, prevent model form updating if status is 304.
 
 ### 1.4.1 / 2016-04-18
 
