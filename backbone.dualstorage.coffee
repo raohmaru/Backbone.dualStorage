@@ -262,7 +262,9 @@ dualsync = (method, model, options) ->
   # execute only local sync
   local = _.result(model, 'local') or _.result(model.collection, 'local')
   options.dirty = options.remote is false and not local
-  return localsync(method, model, options) if options.remote is false or local
+  if options.remote is false or local
+    method = "update" if options.forceUpdate
+    return localsync(method, model, options)
 
   # execute dual sync
   options.ignoreCallbacks = true
