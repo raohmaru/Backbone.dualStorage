@@ -119,6 +119,9 @@ class window.Store
 
   # Update a model by replacing its copy in `this.data`.
   update: (model, options) ->
+    if not _.isObject(model) then return model
+    if not model.id
+      model.set model.idAttribute, @generateId()
     localStorage.setItem @name + @sep + model.id, JSON.stringify(if model.toJSON then model.toJSON(options) else model)
     if not _.include(@records, model.id.toString())
       @records.push model.id.toString()

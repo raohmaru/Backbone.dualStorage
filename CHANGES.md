@@ -1,3 +1,7 @@
+### 1.4.3 / 2017-07-27
+
+* When updating, it checks if `model` is an object and checks if `model.id` exists, if it doesn't, a random id is generated
+
 ### 1.4.2 / 2016-12-28
 
 * On sync with server, prevent model form updating if status is 304.
