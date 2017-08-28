@@ -1,3 +1,7 @@
+### 1.5.0 / 2017-08-25
+
+* Add in-memory storage.
+
 ### 1.4.3 / 2017-07-27
 
 * When updating, it checks if `model` is an object and checks if `model.id` exists, if it doesn't, a random id is generated

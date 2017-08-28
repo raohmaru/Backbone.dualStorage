@@ -1,12 +1,14 @@
 {
   "name": "Backbone.dualStorage",
   "main": "backbone.dualstorage.js",
-  "version": "1.4.3",
-  "homepage": "https://github.com/nilbus/Backbone.dualStorage",
+  "version": "1.5.0",
+  "homepage": "https://github.com/raohmaru/Backbone.dualStorage",
   "authors": [
     "Edward Anderson <nilbus@nilbus.com>",
     "Lucian Mihaila",
-    "Jerome Gravel-Niquet"
+    "Jerome Gravel-Niquet",
+    "Raohmaru",
+    "Iker Garitaonandia"
   ],
   "description": "A dual (localStorage and REST) sync adapter for Backbone.js",
   "keywords": [

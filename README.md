@@ -1,4 +1,4 @@
-Backbone dualStorage Adapter v1.4.3
+Backbone dualStorage Adapter v1.5.0
 ===================================
 
 A dualStorage adapter for Backbone. It's a drop-in replacement for Backbone.Sync() to handle saving to a localStorage database as a cache for the remote models.
@@ -100,6 +100,13 @@ dualStorage stores the local cache in localStorage.
 Each collection's (or model's) `url` property is used as the storage namespace to separate different collections of data.
 This can be overridden by defining a `storeName` property on your model or collection.
 Defining storeName can be useful when your url is dynamic or when your models do not have the collection set but should be treated as part of that collection in the local cache.
+
+In-memory data storage
+----------------------
+
+dualStorage can also store the local cache in memory. Note that by default it uses localStorage.
+This can be overridden by defining a `storeType: "memory"` property on your model or collection.
+Defining storeType can be useful when you want to store an amount of data that could be potentially bigger than the localStorage quota.
 
 Install
 -------
