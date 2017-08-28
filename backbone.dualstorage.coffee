@@ -1,7 +1,7 @@
 ###
-Backbone dualStorage Adapter v1.4.2
+Backbone dualStorage Adapter v1.5.0
 
-A simple module to replace `Backbone.sync` with *localStorage*-based
+A simple module to replace `Backbone.sync` with *localStorage*-based or *in-memory*-based
 persistence. Models are given GUIDS, and saved into a JSON object. Simple
 as that.
 
@@ -22,17 +22,21 @@ getStoreName = (collection, model) ->
   _.result(collection, 'storeName') || _.result(model, 'storeName') ||
   _.result(collection, 'url')       || _.result(model, 'urlRoot')   || _.result(model, 'url')
 
+getStoreType = (collection, model) ->
+  model ||= collection.model.prototype
+  _.result(collection, 'storeType') || _.result(model, 'storeType')
+
 # Make it easy for collections to sync dirty and destroyed records
 # Simply call collection.syncDirtyAndDestroyed()
 Backbone.Collection.prototype.syncDirty = (options) ->
-  store = localStorage.getItem("#{getStoreName(@)}_dirty")
+  store = localStorage.getItem("#{getStoreName(@)}_dirty") || memoryStorage.getItem("#{getStoreName(@)}_dirty")
   ids = (store and store.split(',')) or []
 
   for id in ids
     @get(id)?.save(null, options)
 
 Backbone.Collection.prototype.dirtyModels = ->
-  store = localStorage.getItem("#{getStoreName(@)}_dirty")
+  store = localStorage.getItem("#{getStoreName(@)}_dirty") || memoryStorage.getItem("#{getStoreName(@)}_dirty")
   ids = (store and store.split(',')) or []
   models = for id in ids
     @get(id)
@@ -40,7 +44,7 @@ Backbone.Collection.prototype.dirtyModels = ->
   _.compact(models)
 
 Backbone.Collection.prototype.syncDestroyed = (options) ->
-  store = localStorage.getItem("#{getStoreName(@)}_destroyed")
+  store = localStorage.getItem("#{getStoreName(@)}_destroyed") || memoryStorage.getItem("#{getStoreName(@)}_destroyed")
   ids = (store and store.split(',')) or []
 
   for id in ids
@@ -50,7 +54,7 @@ Backbone.Collection.prototype.syncDestroyed = (options) ->
     model.destroy(options)
 
 Backbone.Collection.prototype.destroyedModelIds = ->
-  store = localStorage.getItem("#{getStoreName(@)}_destroyed")
+  store = localStorage.getItem("#{getStoreName(@)}_destroyed") || memoryStorage.getItem("#{getStoreName(@)}_destroyed")
 
   ids = (store and store.split(',')) or []
 
@@ -62,13 +66,29 @@ Backbone.Collection.prototype.syncDirtyAndDestroyed = (options) ->
 S4 = ->
   (((1 + Math.random()) * 0x10000) | 0).toString(16).substring 1
 
-# Our Store is represented by a single JS object in *localStorage*. Create it
+memoryStorage = (() ->
+  store = {}
+  return {
+    setItem: (key, value) ->
+      store[key] = value
+  
+    getItem: (key) ->
+      store[key] || null
+  
+    removeItem: (key) ->
+      delete store[key]
+  }
+)()
+
+# Our Store is represented by a single JS object in *localStorage* or *memoryStorage*. Create it
 # with a meaningful name, like the name you'd give a table.
 class window.Store
   sep: '_' # previously '-'
 
-  constructor: (name) ->
+  constructor: (name, type) ->
     @name = name
+    @type = type
+    @storage = @getStorageInterface(type)
     @records = @recordsOn @name
 
   # Generates an unique id to use when saving new instances into localstorage
@@ -77,33 +97,33 @@ class window.Store
   generateId: ->
     't' + S4().substring(1) + S4() + '-' + S4() + '-' + S4() + '-' + S4() + '-' + S4() + S4() + S4()
 
-  # Save the current state of the **Store** to *localStorage*.
+  # Save the current state of the **Store** to *@storage*.
   save: ->
-    localStorage.setItem @name, @records.join(',')
+    @storage.setItem @name, @records.join(',')
 
   recordsOn: (key) ->
-    store = localStorage.getItem(key)
+    store = @storage.getItem(key)
     (store and store.split(',')) or []
 
   dirty: (model) ->
     dirtyRecords = @recordsOn @name + '_dirty'
     if not _.include(dirtyRecords, model.id.toString())
       dirtyRecords.push model.id
-      localStorage.setItem @name + '_dirty', dirtyRecords.join(',')
+      @storage.setItem @name + '_dirty', dirtyRecords.join(',')
     model
 
   clean: (model, from) ->
     store = "#{@name}_#{from}"
     dirtyRecords = @recordsOn store
     if _.include dirtyRecords, model.id.toString()
-      localStorage.setItem store, _.without(dirtyRecords, model.id.toString()).join(',')
+      @storage.setItem store, _.without(dirtyRecords, model.id.toString()).join(',')
     model
 
   destroyed: (model) ->
     destroyedRecords = @recordsOn @name + '_destroyed'
     if not _.include destroyedRecords, model.id.toString()
       destroyedRecords.push model.id
-      localStorage.setItem @name + '_destroyed', destroyedRecords.join(',')
+      @storage.setItem @name + '_destroyed', destroyedRecords.join(',')
     model
 
   # Add a model, giving it a unique GUID, if it doesn't already
@@ -112,7 +132,7 @@ class window.Store
     if not _.isObject(model) then return model
     if not model.id
       model.set model.idAttribute, @generateId()
-    localStorage.setItem @name + @sep + model.id, JSON.stringify(if model.toJSON then model.toJSON(options) else model)
+    @storage.setItem @name + @sep + model.id, JSON.stringify(if model.toJSON then model.toJSON(options) else model)
     @records.push model.id.toString()
     @save()
     model
@@ -122,7 +142,7 @@ class window.Store
     if not _.isObject(model) then return model
     if not model.id
       model.set model.idAttribute, @generateId()
-    localStorage.setItem @name + @sep + model.id, JSON.stringify(if model.toJSON then model.toJSON(options) else model)
+    @storage.setItem @name + @sep + model.id, JSON.stringify(if model.toJSON then model.toJSON(options) else model)
     if not _.include(@records, model.id.toString())
       @records.push model.id.toString()
     @save()
@@ -130,35 +150,40 @@ class window.Store
 
   clear: ->
     for id in @records
-      localStorage.removeItem @name + @sep + id
+      @storage.removeItem @name + @sep + id
     @records = []
     @save()
 
   hasDirtyOrDestroyed: ->
-    not _.isEmpty(localStorage.getItem(@name + '_dirty')) or not _.isEmpty(localStorage.getItem(@name + '_destroyed'))
+    not _.isEmpty(@storage.getItem(@name + '_dirty')) or not _.isEmpty(@storage.getItem(@name + '_destroyed'))
 
   # Retrieve a model from `this.data` by id.
   find: (model) ->
-    modelAsJson = localStorage.getItem(@name + @sep + model.id)
+    modelAsJson = @storage.getItem(@name + @sep + model.id)
     return null if modelAsJson == null
     JSON.parse modelAsJson
 
   # Return the array of all models currently in storage.
   findAll: ->
     for id in @records
-      JSON.parse localStorage.getItem(@name + @sep + id)
+      JSON.parse @storage.getItem(@name + @sep + id)
 
   # Delete a model from `this.data`, returning it.
   destroy: (model) ->
-    localStorage.removeItem @name + @sep + model.id
+    @storage.removeItem @name + @sep + model.id
     @records = _.reject(@records, (record_id) ->
       record_id is model.id.toString()
     )
     @save()
     model
 
+  # Gets the storage to use (localStorage, in-memory).
+  getStorageInterface: (type) ->
+    if type == 'memory' then memoryStorage else localStorage
 
-window.Store.exists = (storeName) -> localStorage.getItem(storeName) isnt null
+
+window.Store.exists = (storeName) ->
+  localStorage.getItem(storeName) isnt null || memoryStorage.getItem(storeName) isnt null
 
 callbackTranslator =
   needsTranslation: Backbone.VERSION == '0.9.10'
@@ -176,7 +201,7 @@ callbackTranslator =
       callback
 
 # Override `Backbone.sync` to use delegate to the model or collection's
-# *localStorage* property, which should be an instance of `Store`.
+# *storage* property, which should be an instance of `Store`.
 localsync = (method, model, options) ->
   isValidModel = (method is 'clear') or (method is 'hasDirtyOrDestroyed')
   isValidModel ||= model instanceof Backbone.Model
@@ -185,7 +210,7 @@ localsync = (method, model, options) ->
   if not isValidModel
     throw new Error 'model parameter is required to be a backbone model or collection.'
 
-  store = new Store options.storeName
+  store = new Store options.storeName, options.storeType
 
   response = switch method
     when 'read'
@@ -255,6 +280,7 @@ onlineSync = (method, model, options) ->
 
 dualsync = (method, model, options) ->
   options.storeName = getStoreName(model.collection, model)
+  options.storeType = getStoreType(model.collection, model)
   options.storeExists = Store.exists(options.storeName)
   options.success = callbackTranslator.forDualstorageCaller(options.success, model, options)
   options.error   = callbackTranslator.forDualstorageCaller(options.error, model, options)
